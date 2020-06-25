@@ -1,0 +1,17 @@
+{ 
+"ORG":"myorg",
+"GRP":"Grp1",
+"APP":"home",
+"HUB":"HUB1",
+"SSID":"XXXXX",
+"PASS":"YYYYY",
+"OTA_SER":"http://192.168.0.10:a000/your/dir",
+"ACTIVE_LOW":0,
+"PRIMARY_REL":0,
+"STAT_FREQ_MIN":5,
+"AUTO_OFF_MIN":2,
+"NIGHT_HRS":[18,0,6,0],
+"DAY_LIGHT": 700,
+"NIGHT_LIGHT":200
+}
+
