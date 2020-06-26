@@ -1,4 +1,5 @@
-Speech recognition on Chrome:
+Speech recognition on Chrome, using Web Speech API:
+This needs an active internet connection to work.
 https://www.freecodecamp.org/news/how-to-build-a-simple-speech-recognition-app-a65860da6108/
 
 Download the html, CSS and JS files from the above blog.
