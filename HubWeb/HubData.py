@@ -10,7 +10,7 @@ import json
 import sqlite3
 import random
 from sqlite3 import Error
-
+from CryptoConfig import CryptoConfig
 
 CREATE_SQL1 = '''CREATE TABLE IF NOT EXISTS config
        (config_id TEXT NOT NULL PRIMARY KEY, config_item TEXT);'''
@@ -21,15 +21,15 @@ CREATE_SQL2 = '''CREATE TABLE IF NOT EXISTS device
        auto_off_mins REAL, night_hours TEXT, light_thresholds TEXT, enabled INTEGER, online INTEGER);'''
          
 CREATE_SQL3 = '''CREATE TABLE IF NOT EXISTS deviceType 
-         (device_type TEXT, version TEXT);'''
+       (device_type TEXT, version TEXT);'''
     
 CREATE_SQL4 = '''CREATE TABLE IF NOT EXISTS deviceData
-         (MAC TEXT NOT NULL, time_stamp TEXT, relay_status TEXT, data TEXT, 
-         FOREIGN KEY (MAC) REFERENCES device(MAC));'''
+       (MAC TEXT NOT NULL, time_stamp TEXT, relay_status TEXT, data TEXT, 
+       FOREIGN KEY (MAC) REFERENCES device(MAC));'''
     
 CREATE_SQL5 = '''CREATE TABLE IF NOT EXISTS deviceEvent
-         (MAC TEXT NOT NULL, time_stamp TEXT, event_type TEXT, event_body TEXT, 
-         FOREIGN KEY (MAC) REFERENCES device(MAC));'''
+       (MAC TEXT NOT NULL, time_stamp TEXT, event_type TEXT, event_body TEXT, 
+       FOREIGN KEY (MAC) REFERENCES device(MAC));'''
    
 CREATE_SQLS = [CREATE_SQL1, CREATE_SQL2, CREATE_SQL3, CREATE_SQL4, CREATE_SQL5]
 
@@ -50,11 +50,12 @@ SQL_INS_CONFIG = '''INSERT INTO  config
           (config_id, config_item)
           VALUES (?,?);'''
 SQL_INS_CONFIG_LEN = 2
-SQL_GET_CONFIG = 'SELECT * FROM config  limit ?;'
-SQL_GET_CONFIG_ITEM = 'select * from config where config_id=?'
-SQL_NUM_ROWS_CONFIG = 'select count (*) from config;'
+SQL_GET_CONFIG = 'SELECT * FROM config  LIMIT ?;'
+SQL_GET_CONFIG_ITEM = 'SELECT * FROM config WHERE config_id=?'
+SQL_NUM_ROWS_CONFIG = 'SELECT COUNT (*) FROM config;'
+SQL_CONFIG_KEYS = 'SELECT config_id FROM config;' 
 
-device_param_list = [    # Do NOT change this order!
+device_param_list = [    # Do NOT change this order! It must be an ordered tuple
     'MAC', 'device_name',  'location', 'device_type',
     'group_id',   'primary_relay',  'active_low',
     'status_freq_mins',  'auto_off_mins', 'enabled', 'online'
@@ -83,12 +84,16 @@ SQL_INS_DEVICE_TYPE = '''INSERT INTO deviceType
 SQL_INS_DEVICE_TYPE_LEN = 2
 
 device_data_param_list = ['MAC', 'time_stamp', 'relay_status']   # NOTE: there is one more json param, named
-                                                                 # 'data' which should be stringified before inserting
+                                                                 # 'data', which should be stringified before inserting
               
 SQL_INS_DEVICE_DATA = '''INSERT INTO  deviceData
           (MAC, time_stamp, relay_status, data)   
           VALUES (?,?,?,?);''' 
 SQL_INS_DEVICE_DATA_LEN = 4 
+    
+#SQL_GET_DEVICE_DATA = 'SELECT * FROM deviceData WHERE MAC=? ORDER BY rowid DESC LIMIT 1;'
+# ALiter (more efficient?) :
+SQL_GET_DEVICE_DATA = 'SELECT * FROM deviceData WHERE rowid=(SELECT MAX(rowid) from deviceData WHERE MAC=?);'    
     
 device_event_param_list = ['MAC', 'time_stamp', 'event_type', 'event_body']
     
@@ -138,7 +143,7 @@ class HubDB():
                     
                     
     def getTimeStamp (self):
-        self.cursor.execute (SQL_GET_TIMESTAMP);
+        self.cursor.execute (SQL_GET_TIMESTAMP)
         ts = self.cursor.fetchone()[0]
         if (self.debug):
             print (ts)    
@@ -152,7 +157,7 @@ class HubDB():
     def removeTableByName (self, table_name):
         if self.debug:
             print ('dropping table: {}'.format(table_name))
-        self.cursor.execute ('DROP TABLE "{}";'.format(table_name));    
+        self.cursor.execute ('DROP TABLE "{}";'.format(table_name))  
          
          
     def removeTable (self, remover_sql):
@@ -164,36 +169,60 @@ class HubDB():
         rows = self.cursor.fetchall()
         return rows;        
 #------------------------  
-
-
+    
+    def encryptConfig (self, jconfig):
+        crypto = CryptoConfig (debug=True)
+        encrypted = crypto.encrypt_json (jconfig)
+        return encrypted
+        
+        
+    def decryptConfig (self, config_item):
+        crypto = CryptoConfig (debug=True)
+        jdecrypted = crypto.decrypt_json (config_item)
+        return jdecrypted   # this is a json object (keep it secret!)
+        
+                
     def insertConfig (self, jconfig):
-        if (len(jconfig) != SQL_INS_CONFIG_LEN): 
+        enc_config = {}
+        enc_config ['config_id'] = jconfig['config_id']
+        enc_config['config_item'] = self.encryptConfig (jconfig['config_item'])
+        if (len(enc_config) != SQL_INS_CONFIG_LEN): 
             print ('insertConfig: invalid data')
             return -1            
-        self.cursor.execute (SQL_INS_CONFIG, self.jsonToConfig(jconfig))   
+        self.cursor.execute (SQL_INS_CONFIG, self.jsonToConfig(enc_config))   
         self.connection.commit()
         return self.cursor.lastrowid
         
-        
+    '''------------------    
     def getConfig (self, num_rows=1):
-        self.cursor.execute (SQL_GET_CONFIG, (num_rows,)); # NOTE: (num_rows,) has a tuple syntax
+        self.cursor.execute (SQL_GET_CONFIG, (num_rows,)) # NOTE: (num_rows,) has a tuple syntax
         rows = self.cursor.fetchall()
-        return rows;
-        
+        return rows;    # return all the rows
+    ---------------------'''    
 
     def getConfigItem (self, item_id):
         #print ('fetching: {}'.format(item_id))
-        self.cursor.execute (SQL_GET_CONFIG_ITEM, (item_id,)); # OBSERVE: the comma and parenthesis in (item_id,) 
+        self.cursor.execute (SQL_GET_CONFIG_ITEM, (item_id,)) # OBSERVE: the comma and parenthesis in (item_id,) 
         row = self.cursor.fetchone()
-        return row;
+        return self.decryptConfig (row[1]);    # return the config_item alone without the key
         
         
     def getConfigRowCount (self):
-        self.cursor.execute (SQL_NUM_ROWS_CONFIG); 
+        self.cursor.execute (SQL_NUM_ROWS_CONFIG)
         rows = self.cursor.fetchone()
-        return rows[0];        
+        return rows[0];    # count is in the first (and only) column in the tuple
         
         
+    def getConfigKeys (self):
+        lis = []
+        self.cursor.execute (SQL_CONFIG_KEYS) 
+        rows = self.cursor.fetchall()
+        # print (rows)
+        for row in rows:
+            lis.append (row[0])
+        return lis
+
+
     def jsonToConfig (self, jconfig):
         lis = []
         for param in config_param_list:        
@@ -235,7 +264,15 @@ class HubDB():
         rows = self.cursor.fetchone()
         return rows[0]; 
       
-        
+      
+    # get the latest data record of a particular device
+    def getDeviceData (self, mac_id):
+        self.cursor.execute (SQL_GET_DEVICE_DATA, (mac_id,));    
+        ###self.cursor.moveToLast()
+        row = self.cursor.fetchone()
+        return row
+         
+            
     def jsonToDevice (self, jdevice):
         dev_list = []
         for param in device_param_list:        
@@ -378,8 +415,22 @@ def add_conf():
     print ('\nadding config item..')
     try:             
         conf_item = { 
-                      'config_id' : 'config_item{}'.format(random.randint(0,1000)), 
-                      'config_item' : 'CONFIG_VALUE_vvv012'
+                      "config_id" : 'config_item{}'.format(random.randint(0,1000)), 
+                      "config_item" : {
+                            "org_id" : "intof",
+                            "hub_name"  : "HUB1",
+                            "hub_ap"    : "HUB1_AP",
+                            "hub_ap_passwd" : "hubpasswd123",
+                            "wifi_ap" : "RajaACT",
+                            "wifi_ap_passwd" : "Raja1234",
+                            "user_name" : "rajaraman@intof.in",
+                            "user_pwd"  : "XK424KERAxXP08LQ390",
+                            "email"     : "makers@intof.in",
+                            "mobile"    : "9884302931",
+                            "location"  : "Maithri",
+                            "ota_server" : "http://192.168.0.101:8000/ota",
+                            "web_server" : "http://192.168.0.101:7000/"
+                      }
                     }
         rownum = db.insertConfig (conf_item)
         print ('row {} inserted.'.format(rownum))
@@ -392,20 +443,17 @@ def add_conf():
 def print_conf():  
     print ('\nprinting config..')
     try:     
-        item_keys = []
-        rows = db.getConfig(3)
-        for row in rows:
-            print (row)
-            print (row[0])
-            item_keys.append (row[0])
-        print ('Table has {} rows.'.format(db.getConfigRowCount()))
-        print()
+        print ('Table has {} rows.'.format(db.getConfigRowCount()))    
+        item_keys = db.getConfigKeys()
+        print ('Keys:')
         print (item_keys)
+        print()
         for key in item_keys:
             item = db.getConfigItem (key)
             print(item)
     except Exception as e:
         print ('ERROR: ', str(e))  
+               
                           
 def add_dev():      
     global rand_mac
@@ -437,10 +485,13 @@ def add_dev():
    
 def print_dev():
     print ('\nrecently added device:')
-    dev = db.getDevice(rand_mac)   # just created, and globally saved
-    print (dev)
-    
-    
+    try:
+        dev = db.getDevice(rand_mac)   # just created, and globally saved
+        print (dev)
+    except Exception as e:
+        print ('ERROR: ', str(e))   
+        
+            
 def remove_dev():
     try:
         print ('\nremoving device type..')        
@@ -482,6 +533,15 @@ def add_devdata():
         print ('ERROR: ', str(e)) 
         
         
+def get_devdata ():
+    print ('\nreading device data..')
+    try:
+        row = db.getDeviceData (rand_mac)
+        print (row)
+    except Exception as e:
+        print ('ERROR: ', str(e)) 
+        
+                
 def add_devevent():
     try:           
         print ('\nadding device event..')
@@ -526,6 +586,7 @@ if __name__ == '__main__':
     print_dev()
     add_devtype()
     add_devdata()
+    get_devdata()
     add_devevent()
     
     if db is not None:
