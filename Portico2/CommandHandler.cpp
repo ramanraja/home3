@@ -38,7 +38,7 @@ void CommandHandler::send_not_implemented () {
 }    
 
 void CommandHandler::send_booting_msg() {
-    snprintf (status_msg, MAX_MSG_LENGTH-1, "{\"BOOT\":{\"APP\":\"%s\",\"MAC\":\"%s\",\"HW\":\"%s\",\"FW\":\"%s\"}}", 
+    snprintf (status_msg, MAX_MSG_LENGTH-1, "{\"BOOT\":{\"APP\":\"%s\",\"MAC\":\"%s\",\"HW\":\"%s\",\"FW\":\"%d\"}}", 
               pC->app_id, pC->mac_address, HARDWARE_TYPE, FIRMWARE_VERSION); 
     publish_message();
 }     
