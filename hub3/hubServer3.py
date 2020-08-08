@@ -320,7 +320,7 @@ def get_device_config():
     return (retval)  
      
 
-@app.route('/update/device/config', methods=['GET']) 
+@app.route('/update/device/config', methods=['GET', 'POST']) 
 def update_device_config(): 
     dprint ('\nRequest: ', request)
     if request.json is None:

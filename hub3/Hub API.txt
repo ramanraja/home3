@@ -52,7 +52,7 @@ NOTE: You can optionally add a mobile phone number to the input json. The hub ca
 
 NOTE: All the following calls will need the security token in the 'Authorization: bearer' header.
 
-2) List all the newly discovered IoT device:
+2) List all the newly discovered IoT devices:
 
 end point: http://192.168.1.10/discover/devices
 method: GET
@@ -109,7 +109,7 @@ Error messages:
 }
 --------------------------------------------------------------------------------
 3) Get all the device types:
-end point: http://192.168.1.10/get/device/types
+end point: http://127.0.0.1:5000/list/device/types
 method: GET
 
 Return json:
@@ -123,8 +123,8 @@ You can click modify the drop down list and insert/delete strings.
 After modifying the list, send the entire list to the server. 
 The back end just deletes all the existing list and replaces with the new strings.
 
-3)  Upload the new list of device types:
-end point: http://192.168.1.10/set/device/types
+4)  Upload a new list of device types (this replaces the existing content):
+end point: http://192.168.1.10/update/device/types
 method: POST
 
 input json:
@@ -139,8 +139,8 @@ OR
 { 'error' : 'Only admin can modify the device list' }
 --------------------------------------------------------------------------------
 
-4) Get all the room types :
-end point: http://192.168.1.10/get/room/types
+5) Get all the room types :
+end point: http://127.0.0.1:5000/list/room/types
 method: GET
 
 Return json:
@@ -152,9 +152,9 @@ NOTE: Room type determines the icon used to represent the room on the UI.
 
 If yuu want to modify the list, send the entire new list to the server:
 
-3)  Upload the new list of room types:
+6)  Upload the new list of room types:
 
-end point: http://192.168.1.10/set/room/types
+end point: http://192.168.1.10/update/room/types
 method: POST
 
 input json:
@@ -168,9 +168,9 @@ Return json:
 OR
 { 'error' : 'Only admin can modify the room list' }
 --------------------------------------------------------------------------------
-5) Select a device, and configure it:
+7) Select a device, and configure it:
 
-end point: http://192.168.1.10/configure/device
+end point: http://127.0.0.1:5000/update/device/config
 method: POST
 
 input json:
@@ -206,7 +206,7 @@ NOTE: The last light will not be automatically switched on/off, since the schedu
 
 Return value:
 {
-   "configuration" : "success"
+   "result" : "success"
 }
 
 Error message:
@@ -215,7 +215,7 @@ Error message:
 }
 --------------------------------------------------------------------------------
 
-6) Get the current configuration of a device:
+8) Get the current configuration of a device:
 
 end point: http://192.168.1.10/get/device/config?device_id=MBNASDFH82634
 method: GET
@@ -252,9 +252,9 @@ Error message:
 }
 --------------------------------------------------------------------------------
 
-7) Get the current status of relays in a device:
+9) Get the current status of relays in a device:
 
-end point: http://192.168.1.10/get/status?id=MBNASDFH82634
+end point: http://192.168.1.10/get/device/status
 method: GET
 
 return value:
@@ -265,7 +265,7 @@ return value:
 }
 This means the first two relays are ON; the third & fourth relays are OFF.
 
-If the device is offline:
+If the device is not responding:
 {
    "error" : "device offline"
 }
@@ -274,11 +274,13 @@ Error message:
 {
     "error" : "invalid device id"
 }
+
+Example: http://192.168.1.10/get/device/status?device_id="MBNASDFH82634"
 --------------------------------------------------------------------------------
 
-8) Manually operate the relays in a device:
+10) Manually operate the relays in a device:
 
-end point: http://192.168.1.10/set/status
+end point: http://192.168.1.10/insert/device/status
 method : POST
 
 input json:
@@ -306,16 +308,58 @@ If the device is not responding:
    "time_stamp" : "2020-08-13 10:30:55"
    "status" : [2,2,2,2]
 }
---------------------------------------------------------------------------------
-9) For testing:
 
-end point: http://192.168.1.10/echo
-method : POST
+==========================================================================================================
+Only for testing:
+==========================================================================================================
+1) echo test:
+
+http://192.168.1.10/echo
+POST
 
 input json: any valid json object
 return value: the input json is returned without modification
-
 This will help to verify that we are passing the correct json data to the server.
-======================================================================================================================================
+--------------------------------------------------------------------------------
+! Delete all tables in the database along with contents :
+http://127.0.0.1:5000/delete/tables
+GET
 
+Create all the necessary tables:
+http://127.0.0.1:5000/create/tables
+GET
+
+List the available tables:
+http://127.0.0.1:5000/list/tables
+GET
+---------------------------------------------------------------------------------
+To simulate registering of a new device:
+This will be usually called by the device itself, so no need to call it from the front end.
+But this call can insert a simulated device into the databse for testing.
+http://127.0.0.1:5000/self/register/device
+POST
+
+input parameters:
+{
+    "device_id": "A87BC08D809", 
+    "hardware_type":"REL4-LDR", 
+    "num_relays":4
+} 
+
+---------------------------------------------------------------------------------
+To delte a single device from the device list:
+http://127.0.0.1:5000/delete/device
+GET
+
+input parameter: device_id
+Example:
+http://127.0.0.1:5000/delete/device?device_id="ABC87234CD"
+---------------------------------------------------------------------------------
+To see what all devices are there, which have already been provisioned:
+http://127.0.0.1:5000/list/active/devices
+GET
+
+To see what devices are waiting to be provisioned:
+http://127.0.0.1:5000/list/inactive/devices
+GET
 

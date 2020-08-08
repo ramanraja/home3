@@ -294,6 +294,10 @@ class MariaWrapper():
   
     # this is actually onboarding the device; the next step is to configure the relays
     def provisionDevice (self, jprov_params):
+        MACID = jprov_params['device_id']
+        if not self.deviceExists (MACID):
+            raise Exception ('Invalid device id')
+            return ({'error' : 'invalid device id'})  # will not reach here    
         self.cursor.execute (SQL_PROVISION_DEVICE, jprov_params)
         return ({'result':'success'})
     
@@ -304,7 +308,7 @@ class MariaWrapper():
             
         
     def getDeviceStatus (self, jdevice_id):
-        self.cursor.execute (SQL_GET_DEVICE_STATUS, jdevice_id)
+        self.cursor.execute (SQL_GET_DEVICE_STATUS, jdevice_id) # get the latest record
         dev_status = self.cursor.fetchall()
         if dev_status and len(dev_status)>0:
             retval = {
@@ -313,11 +317,15 @@ class MariaWrapper():
                 'relay_status': dev_status[0][2]
             }
         else:
-            retval = {'error' : 'device offline'}
+            retval = {'error' : 'no device data'}
         return (retval)
     
 
     def insertDeviceData (self, jdevice_data):
+        MACID = jdevice_data['device_id']
+        if not self.deviceExists (MACID):
+            raise Exception ('Invalid device id')
+            return ({'error' : 'invalid device id'})  # will not reach here      
         jdevice_data['data'] = json.dumps(jdevice_data['data'] )
         #if self.debug: print(jdevice_data)
         self.cursor.execute (SQL_INSERT_DEVICE_DATA, jdevice_data)
